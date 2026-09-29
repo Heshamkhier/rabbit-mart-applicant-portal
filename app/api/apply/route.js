@@ -11,8 +11,19 @@ import { sendConfirmation } from "@/lib/whatsapp";
 // (same file this build always used). Either way, a successful submit also
 // fires the WhatsApp confirmation (lib/whatsapp.js — dry-run until Meta
 // Business verification + template approval are done on your side).
-
-const filePath = path.join(process.cwd(), "data", "applications.json");
+//
+// The fallback file has to live somewhere writable. process.cwd() is the
+// deployed project bundle on a serverless host (Vercel and friends) — that
+// filesystem is read-only outside /tmp, so writing next to the source (fine
+// for local dev) throws EROFS on every submission there once Sheets isn't
+// configured. Route the fallback to /tmp on serverless instead; local dev
+// keeps writing next to the source like before. This only matters when
+// Sheets isn't configured — once it is, appendRow() below writes straight
+// to the real Sheet and this file is never touched.
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const dataDir = isServerless ? path.join("/tmp", "rabbit-mart-applicant-portal-data") : path.join(process.cwd(), "data");
+if (isServerless) fs.mkdirSync(dataDir, { recursive: true });
+const filePath = path.join(dataDir, "applications.json");
 
 function readAllLocal() {
   if (!fs.existsSync(filePath)) return [];
