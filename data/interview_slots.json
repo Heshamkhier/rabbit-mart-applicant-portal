@@ -1,0 +1,11 @@
+{
+  "defaultTemplate": {
+    "daysOpen": ["sat", "sun", "mon", "tue", "wed", "thu"],
+    "dayClosed": "fri",
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "slotLengthMinutes": 60,
+    "capacityPerSlot": 3
+  },
+  "branchOverrides": []
+}

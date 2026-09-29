@@ -1,0 +1,23 @@
+{
+  "theme": {
+    "colorGreenDeep": "#0B3D2E",
+    "colorGreenMid": "#0F4A38",
+    "colorLime": "#D6FF3D",
+    "colorCream": "#F6F5EF",
+    "fontFamily": "Cairo"
+  },
+  "brand": {
+    "name": "Rabbit Mart",
+    "marqueeText": "تعيين فوري • تأمين طبي واجتماعي • مرتب حتى 10,200 جنيه • فرص للشباب والبنات"
+  },
+  "whatsapp": {
+    "businessNumber": "+201033513436",
+    "customProfileMessage": ""
+  },
+  "copy": {
+    "heroSubDefault": "دوام كامل · فروع نشطة بالقاهرة الكبرى",
+    "applyButton": "قدم الآن",
+    "confirmTitle": "تمام، طلبك اتسجل بنجاح!",
+    "confirmClose": "تمام، في انتظار حضورك 🙏"
+  }
+}
