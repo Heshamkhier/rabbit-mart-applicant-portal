@@ -1,0 +1,233 @@
+.rm-home {
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+.rm-home-nav {
+  height: 76px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.rm-home-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  font-size: 17px;
+  color: var(--green-deep);
+}
+.rm-home-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+.rm-home-nav-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-deep);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.rm-home-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--green-deep);
+  color: #fff;
+  padding: 56px 24px 64px;
+}
+.rm-home-hero-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.rm-home-hero-copy {
+  flex: 1 1 380px;
+  min-width: 280px;
+  position: relative;
+  z-index: 2;
+}
+.rm-home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(214, 255, 61, 0.14);
+  border: 1px solid var(--lime);
+  color: var(--lime);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+.rm-home-title {
+  font-size: clamp(30px, 4.6vw, 52px);
+  font-weight: 900;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+.rm-home-title .accent {
+  color: var(--lime);
+}
+.rm-home-sub {
+  font-size: 15px;
+  color: #d7e6df;
+  font-weight: 600;
+  margin: 0 0 26px;
+  max-width: 480px;
+}
+.rm-home-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 26px;
+  font-weight: 800;
+  font-size: 15px;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.rm-home-hero-art {
+  flex: 0 0 auto;
+  width: min(46vw, 320px);
+  position: relative;
+  z-index: 1;
+  align-self: flex-end;
+  margin-bottom: -20px;
+}
+.rm-home-hero-art img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.rm-home-perks {
+  max-width: 1160px;
+  margin: -34px auto 0;
+  padding: 0 24px;
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.rm-perk-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(11, 61, 46, 0.08);
+  padding: 18px 20px;
+  font-weight: 800;
+  font-size: 13.5px;
+  color: var(--green-deep);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rm-perk-card .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lime);
+  flex-shrink: 0;
+}
+
+.rm-home-jobs {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 56px 24px 72px;
+}
+.rm-home-jobs h2 {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--green-deep);
+  margin: 0 0 4px;
+}
+.rm-home-jobs .lead {
+  font-size: 13.5px;
+  color: var(--gray);
+  margin: 0 0 24px;
+}
+.rm-job-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+.rm-job-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 2px 12px rgba(11, 61, 46, 0.05);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rm-job-card .title {
+  font-weight: 900;
+  font-size: 17px;
+  color: var(--green-deep);
+}
+.rm-job-card .meta {
+  font-size: 12.5px;
+  color: var(--gray);
+  font-weight: 600;
+}
+.rm-job-card .salary {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--green-deep);
+}
+.rm-job-card .apply-link {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--lime);
+  color: var(--green-deep);
+  border-radius: 999px;
+  padding: 11px;
+  font-weight: 800;
+  font-size: 13.5px;
+  text-decoration: none;
+}
+.rm-home-empty {
+  text-align: center;
+  color: var(--gray);
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .rm-home-hero {
+    padding: 40px 18px 52px;
+  }
+  .rm-home-hero-art {
+    width: 56vw;
+    opacity: 0.9;
+  }
+  .rm-home-perks {
+    margin-top: -24px;
+  }
+  .rm-home-jobs {
+    padding: 44px 18px 56px;
+  }
+}

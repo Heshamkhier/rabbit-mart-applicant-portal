@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --green-deep: #0b3d2e;
+  --green-mid: #0f4a38;
+  --lime: #d6ff3d;
+  --cream: #f6f5ef;
+  --ink: #0b3d2e;
+  --gray: #6b7a75;
+  --line: #e4e6df;
+  --danger: #e0523f;
+  --orange: #ff512f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes scrollMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+.animate-marquee {
+  animation: scrollMarquee 14s linear infinite;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.animate-pulse-dot {
+  animation: pulseDot 1.4s infinite;
+}
