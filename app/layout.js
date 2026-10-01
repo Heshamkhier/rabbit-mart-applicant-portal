@@ -10,11 +10,6 @@ const cairo = Cairo({
 export const metadata = {
   title: "وظائف Rabbit Mart",
   description: "بوابة التقديم على وظائف Rabbit Mart",
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/brand/round-mark.png",
-  },
 };
 
 export default function RootLayout({ children }) {

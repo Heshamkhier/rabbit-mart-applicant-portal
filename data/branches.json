@@ -9,7 +9,8 @@
     "totalSalary": 10200,
     "address": "مول ذا يارد، بوابة 6، بجوار تسليمات فتح الله",
     "mapLink": "https://maps.google.com/maps?q=30.053665161132812%2C31.49114990234375&z=17&hl=en",
-    "active": true
+    "active": true,
+    "femaleHiring": true
   },
   {
     "id": "mivida",
@@ -21,7 +22,8 @@
     "totalSalary": 10200,
     "address": "وان جولدن اسكوير مول، شارع النوادي، أمام ميفيدا",
     "mapLink": "https://maps.google.com/maps?q=30.0152219%2C31.5265933&z=17&hl=en",
-    "active": true
+    "active": true,
+    "femaleHiring": true
   },
   {
     "id": "zayed_beverly",
@@ -33,7 +35,8 @@
     "totalSalary": 10200,
     "address": "سوديك زايد، بوابة 6 كومباوند بيفرلي هيلز، الجراج تحت لابوار",
     "mapLink": "https://maps.google.com/maps?q=30.05980682373047%2C30.94718360900879&z=17&hl=en",
-    "active": true
+    "active": true,
+    "femaleHiring": true
   },
   {
     "id": "zayed_arkan",
@@ -45,7 +48,8 @@
     "totalSalary": 9200,
     "address": "أمام أركان بلازا، الناحية الأخرى، مول الصفوة، قريب من محور 26 يوليو",
     "mapLink": "https://maps.app.goo.gl/tzSLzWVmruxvQB3V7",
-    "active": true
+    "active": true,
+    "femaleHiring": true
   },
   {
     "id": "masr_gedida",
@@ -57,7 +61,8 @@
     "totalSalary": 9200,
     "address": "فرع مصر الجديدة",
     "mapLink": "",
-    "active": true
+    "active": true,
+    "femaleHiring": true
   },
   {
     "id": "tagamoa",
@@ -69,7 +74,8 @@
     "totalSalary": 9200,
     "address": "فرع التجمع الخامس",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "madinaty",
@@ -81,7 +87,8 @@
     "totalSalary": 9700,
     "address": "فرع مدينتي",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "october_hosary",
@@ -93,7 +100,8 @@
     "totalSalary": 9200,
     "address": "الحصري - أكتوبر، مول لاسيتيه",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "dreamland",
@@ -105,7 +113,8 @@
     "totalSalary": 9200,
     "address": "دريم لاند على طريق الواحات مباشرة",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "mokattam",
@@ -117,7 +126,8 @@
     "totalSalary": 9200,
     "address": "فرع المقطم",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "nasr_city",
@@ -129,7 +139,8 @@
     "totalSalary": 9200,
     "address": "فرع مدينة نصر، على محور شينزو آبي",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "dokki",
@@ -141,7 +152,8 @@
     "totalSalary": 9200,
     "address": "فرع الدقي",
     "mapLink": "",
-    "active": false
+    "active": false,
+    "femaleHiring": true
   },
   {
     "id": "maadi",
@@ -154,6 +166,7 @@
     "address": "فرع المعادي، قريب من ميدان دجلة",
     "mapLink": "",
     "active": false,
-    "flag": "غير مؤكد — يحتاج تأكيد قبل التفعيل"
+    "flag": "غير مؤكد — يحتاج تأكيد قبل التفعيل",
+    "femaleHiring": true
   }
 ]

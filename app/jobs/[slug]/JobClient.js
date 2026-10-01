@@ -1,9 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { AREA_OPTIONS, suggestBranchesForArea } from "@/lib/matching";
+import { useState, useEffect } from "react";
 
-const DAY_OPTIONS = ["غداً", "بعد غد", "السبت القادم", "الأحد القادم"];
+// The confirmation is kept in this browser only (localStorage), keyed per
+// job, so a candidate who closes the tab and reopens the same job link later
+// sees their booked interview again instead of a blank form — "for life",
+// i.e. until they clear their browser's site data. Nothing here is sent
+// anywhere; it only ever mirrors what the server already confirmed.
+function confirmationKey(jobId) {
+  return `rm_confirmation_${jobId}`;
+}
+function loadStoredConfirmation(jobId) {
+  try {
+    const raw = window.localStorage.getItem(confirmationKey(jobId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function saveStoredConfirmation(jobId, data) {
+  try {
+    window.localStorage.setItem(confirmationKey(jobId), JSON.stringify(data));
+  } catch {
+    // Private-browsing / storage-full — the confirmation still shows for
+    // this visit from React state, it just won't survive a reload.
+  }
+}
+
 const TIME_OPTIONS = ["11:00 ص", "12:00 م", "1:00 م", "2:00 م", "3:00 م", "4:00 م"];
 
 const EMPTY_FORM = {
@@ -19,24 +45,44 @@ const EMPTY_FORM = {
   time: "",
 };
 
-// Per-job eligibility config (Admin → Jobs → Edit) — these three toggles are
-// what let a job be posted with a totally different applicant flow than
-// محضّر طلبات (Picker) without touching this component. ageMin/ageMax,
-// requireGraduate, and requireMilitaryStatus are all optional per job: unset
-// them and that question just doesn't appear on the form.
+function formatArabicDate(isoDate) {
+  if (!isoDate) return "";
+  try {
+    const d = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return isoDate;
+    return new Intl.DateTimeFormat("ar-EG", { weekday: "long", day: "numeric", month: "long" }).format(d);
+  } catch {
+    return isoDate;
+  }
+}
+
+// What the candidate sees when the server refuses or can't save the
+// application - instead of the old always-"تمام" confirmation.
+const SUBMIT_ERRORS = {
+  job_closed: "التقديم على الوظيفة دي اتقفل. ارجع لصفحة الوظائف وشوف الوظايف المتاحة.",
+  store_closed: "الفرع اللي اخترته مبقاش متاح. من فضلك اختار فرع تاني.",
+  invalid_fields: "في بيانات ناقصة أو مش مظبوطة. راجعها وجرب تاني.",
+};
+const SUBMIT_ERROR_DEFAULT = "حصلت مشكلة وطلبك لسه متسجلش. من فضلك جرب تاني بعد لحظات.";
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Eligibility gates and the branch-vs-location mode are entirely job-driven
+// so this one form works for any job type, not just the Picker role — an
+// unset ageMin/ageMax means no age gate, requireGraduate/requireMilitaryStatus
+// default to false (no gate) for older/not-yet-migrated job rows.
 function ageHint(job) {
   if (job.ageMin != null && job.ageMax != null) return `لازم تكون بين ${job.ageMin} و ${job.ageMax} سنة`;
-  if (job.ageMin != null) return `لازم تكون ${job.ageMin} سنة فأكثر`;
-  if (job.ageMax != null) return `لازم تكون أقل من ${job.ageMax} سنة`;
+  if (job.ageMin != null) return `لازم تكون ${job.ageMin} سنة أو أكبر`;
+  if (job.ageMax != null) return `لازم تكون ${job.ageMax} سنة أو أصغر`;
   return "";
 }
 
 function ageError(job, age) {
-  if (job.ageMin == null && job.ageMax == null) return null;
-  const n = parseInt(age, 10);
-  if (Number.isNaN(n)) return "من فضلك اكتب سنك";
-  if (job.ageMin != null && n < job.ageMin) return `للأسف السن المطلوب ${ageHint(job)}`;
-  if (job.ageMax != null && n > job.ageMax) return `للأسف السن المطلوب ${ageHint(job)}`;
+  if (job.ageMin != null && age < job.ageMin) return `للأسف السن المطلوب: ${ageHint(job)}`;
+  if (job.ageMax != null && age > job.ageMax) return `للأسف السن المطلوب: ${ageHint(job)}`;
   return null;
 }
 
@@ -50,13 +96,38 @@ export default function JobClient({ job, branches, siteContent }) {
   const [confirmed, setConfirmed] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
-  const [suggestion, setSuggestion] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [bookedStore, setBookedStore] = useState(null); // full details, from the server after applying
+
+  // Restore a previously-saved confirmation for this exact job, if this
+  // browser already booked one — runs once on mount, before the candidate
+  // sees the apply form at all.
+  useEffect(() => {
+    const stored = loadStoredConfirmation(job.id);
+    if (stored && stored.form) {
+      setForm(stored.form);
+      setBookedStore(stored.bookedStore || null);
+      setConfirmed(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id]);
+
+  // Areas come from this job's OPEN stores only - never a hard-coded list
+  // that could point a candidate to a closed store.
+  const areas = Array.from(new Set(branches.map((b) => b.area).filter(Boolean)));
+  const storesInArea = form.area ? branches.filter((b) => b.area === form.area) : branches;
 
   function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-    if (field === "area" && hasBranches) {
-      setSuggestion(suggestBranchesForArea(value, branches));
-    }
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      // Changing area clears a store that isn't in the new area.
+      if (field === "area" && value && f.branchId) {
+        const still = branches.find((b) => b.id === f.branchId && b.area === value);
+        if (!still) next.branchId = "";
+      }
+      return next;
+    });
   }
 
   function validate() {
@@ -64,39 +135,64 @@ export default function JobClient({ job, branches, siteContent }) {
     if (form.name.trim().length < 5) e.name = "من فضلك اكتب اسمك الكامل";
     if (!/^01[0-9]{9}$/.test(form.phone.trim())) e.phone = "رقم موبايل غير صحيح";
     if (!/^01[0-9]{9}$/.test(form.whatsapp.trim())) e.whatsapp = "رقم واتساب غير صحيح";
+
     if (needsAge) {
-      const ae = ageError(job, form.age);
-      if (ae) e.age = ae;
+      const age = parseInt(form.age, 10);
+      if (!Number.isFinite(age)) e.age = "من فضلك اكتب سنك";
+      else {
+        const err = ageError(job, age);
+        if (err) e.age = err;
+      }
     }
+
     if (needsEducation && (!form.education || form.education === "student")) {
       e.education = "الوظيفة للخريجين فقط حالياً";
     }
     if (needsMilitary && (!form.military || form.military === "pending")) {
       e.military = "لازم موقف واضح من التجنيد";
     }
+
     if (hasBranches && !form.branchId) e.branchId = "من فضلك اختر الفرع";
-    if (!form.day) e.day = "من فضلك اختر يوم المقابلة";
+
+    if (!form.day) e.day = "من فضلك اختر تاريخ المقابلة";
     if (!form.time) e.time = "من فضلك اختر الوقت";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   async function submit() {
-    if (!validate()) return;
+    if (submitting || !validate()) return;
     const branch = hasBranches ? branches.find((b) => b.id === form.branchId) : null;
-    await fetch("/api/apply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jobId: job.id,
-        ...form,
-        branchName: branch?.name,
-        source: "form",
-        timestamp: new Date().toISOString(),
-      }),
-    }).catch(() => {});
-    setConfirmed(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const res = await fetch("/api/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: job.id,
+          ...form,
+          area: branch ? branch.area : "",
+          branchName: branch?.name,
+          // ?src=facebook etc. on the job-ad link records where they came from
+          source: new URLSearchParams(window.location.search).get("src") || "form",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setSubmitError(SUBMIT_ERRORS[data.error] || SUBMIT_ERROR_DEFAULT);
+        return;
+      }
+      // Only now - once the application is really saved - confirm it.
+      setBookedStore(data.store || null);
+      setConfirmed(true);
+      saveStoredConfirmation(job.id, { form, bookedStore: data.store || null });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      setSubmitError(SUBMIT_ERROR_DEFAULT);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function ctaClick() {
@@ -107,13 +203,14 @@ export default function JobClient({ job, branches, siteContent }) {
     submit();
   }
 
-  const selectedBranch = hasBranches ? branches.find((b) => b.id === form.branchId) : null;
+  const selectedBranch = bookedStore;
 
   return (
     <div className="rm-page">
       <header className="rm-header">
         <div className="rm-logo">
-          <img src="/brand/round-mark.png" alt="" className="rm-logo-mark" /> Rabbit Mart
+          <img src="/mascot-full.png" alt="Rabbit Mart" className="rm-logo-img" />
+          Rabbit Mart
         </div>
       </header>
 
@@ -132,7 +229,31 @@ export default function JobClient({ job, branches, siteContent }) {
           Rabbit Mart — {job.employmentType}
           {hasBranches ? ` · ${branches.length} فروع نشطة بالقاهرة الكبرى` : job.location ? ` · ${job.location}` : ""}
         </p>
+        <img src="/mascot-racer.png" alt="" className="rm-hero-mascot" />
       </div>
+
+      {!confirmed && (
+        <div className="rm-role-float-wrap">
+          <div className="rm-role-float">
+            <div className="amt">
+              {job.title}
+              <span>
+                {job.employmentType}
+                {hasBranches ? ` · ${branches.length} فروع` : job.location ? ` · ${job.location}` : ""}
+              </span>
+            </div>
+            <button
+              className="rm-role-float-cta"
+              onClick={() => {
+                setTab("apply");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              قدم الآن
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rm-chips">
         <div className="rm-chip">📍 {hasBranches ? "القاهرة" : job.location || "القاهرة"}</div>
@@ -208,6 +329,7 @@ export default function JobClient({ job, branches, siteContent }) {
           {hasBranches ? (
             <section className="rm-block">
               <h3>الفروع المتاحة</h3>
+              <p style={{ fontSize: 13, opacity: 0.7, marginBottom: 8 }}>عنوان الفرع ولوكيشن الماب هيوصلوك بعد ما تقدّم.</p>
               {branches.map((b) => (
                 <div className="rm-branch-card" key={b.id}>
                   <div className="top">
@@ -217,12 +339,16 @@ export default function JobClient({ job, branches, siteContent }) {
                     </div>
                     <div className="total">{b.totalSalary.toLocaleString()} ج</div>
                   </div>
-                  <div className="addr">{b.address}</div>
-                  {b.mapLink && (
-                    <a className="maplink" href={b.mapLink} target="_blank" rel="noreferrer">
-                      📍 افتح الموقع على الماب
-                    </a>
+                  <div className="breakdown">
+                    <span>{job.salaryBase.toLocaleString()} أساسي</span>
+                    <span>{job.salaryBonus.toLocaleString()} بونص أداء</span>
+                    <span>{b.allowance.toLocaleString()} بدل مواصلات</span>
+                  </div>
+                  {b.femaleHiring === false && (
+                    <div className="not-hiring-women">التعيين للبنات في الفرع ده متوقف حالياً</div>
                   )}
+                  {/* Address and map link are deliberately NOT shown here - the
+                      candidate only gets them on the confirmation, after applying. */}
                 </div>
               ))}
             </section>
@@ -238,10 +364,8 @@ export default function JobClient({ job, branches, siteContent }) {
           <section className="rm-block">
             <h3>مواعيد المقابلات</h3>
             <p>
-              {job.interviewWindow.days}، من الساعة {job.interviewWindow.start} حتى {job.interviewWindow.end}.
-              {hasBranches
-                ? " تنزل الفرع نفسه في هذه المواعيد — مفيش خطوة “مقابلة منفصلة” قبلها."
-                : ""}
+              {job.interviewWindow.days}، من الساعة {job.interviewWindow.start} حتى {job.interviewWindow.end}. تنزل الفرع
+              نفسه في هذه المواعيد — مفيش خطوة &quot;مقابلة منفصلة&quot; قبلها.
             </p>
           </section>
         </div>
@@ -292,30 +416,26 @@ export default function JobClient({ job, branches, siteContent }) {
 
           {hasBranches && (
             <>
-              <Field label="منطقة السكن">
-                <select value={form.area} onChange={(e) => set("area", e.target.value)}>
-                  <option value="">اختر منطقتك...</option>
-                  {AREA_OPTIONS.map((a) => (
-                    <option key={a.value} value={a.value}>
-                      {a.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              {suggestion && suggestion.note && (
-                <div className="rm-suggest-box">
-                  <b>🎯 اقتراح الفرع الأنسب</b>
-                  {suggestion.note}
-                </div>
+              {areas.length > 1 && (
+                <Field label="المنطقة" hint="اختار المنطقة الأقرب ليك عشان نعرضلك فروعها">
+                  <select value={form.area} onChange={(e) => set("area", e.target.value)}>
+                    <option value="">كل المناطق</option>
+                    {areas.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               )}
 
               <Field label="اختيار الفرع" error={errors.branchId}>
                 <select value={form.branchId} onChange={(e) => set("branchId", e.target.value)}>
                   <option value="">اختر الفرع...</option>
-                  {branches.map((b) => (
+                  {storesInArea.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.name} — {b.totalSalary.toLocaleString()} ج
+                      {b.name}
+                      {areas.length > 1 && !form.area ? ` (${b.area})` : ""} — {b.totalSalary.toLocaleString()} ج
                     </option>
                   ))}
                 </select>
@@ -324,12 +444,7 @@ export default function JobClient({ job, branches, siteContent }) {
           )}
 
           <Field label="ميعاد المقابلة" hint={`${job.interviewWindow.days}، من ${job.interviewWindow.start} حتى ${job.interviewWindow.end}`} error={errors.day}>
-            <select value={form.day} onChange={(e) => set("day", e.target.value)}>
-              <option value="">اختر اليوم...</option>
-              {DAY_OPTIONS.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
+            <input type="date" min={todayISO()} value={form.day} onChange={(e) => set("day", e.target.value)} />
           </Field>
 
           <Field label="الساعة" error={errors.time}>
@@ -345,12 +460,14 @@ export default function JobClient({ job, branches, siteContent }) {
 
       {confirmed && (
         <div className="rm-panel">
-          <img src="/brand/mascot-skater.png" alt="" className="rm-confirm-mascot" />
+          <div className="rm-confirm-mascot-wrap">
+            <img src="/mascot-skater.png" alt="" className="rm-confirm-mascot" />
+          </div>
           <div className="rm-confirm-title">{siteContent.copy.confirmTitle}</div>
           <div className="rm-confirm-sub">أهلاً {form.name.split(" ")[0]}! تفاصيل مقابلتك جاهزة:</div>
 
           <div className="rm-package-card">
-            {selectedBranch ? (
+            {hasBranches && selectedBranch ? (
               <>
                 <div className="row">
                   <span className="k">الفرع</span>
@@ -371,12 +488,6 @@ export default function JobClient({ job, branches, siteContent }) {
                   </span>
                 </div>
                 <div className="row">
-                  <span className="k">الميعاد</span>
-                  <span className="v">
-                    {form.day} — {form.time}
-                  </span>
-                </div>
-                <div className="row">
                   <span className="k">إجمالي الراتب</span>
                   <span className="v">{selectedBranch.totalSalary.toLocaleString()} جنيه</span>
                 </div>
@@ -387,30 +498,24 @@ export default function JobClient({ job, branches, siteContent }) {
                 )}
               </>
             ) : (
-              <>
+              job.location && (
                 <div className="row">
                   <span className="k">مكان العمل</span>
-                  <span className="v">{job.location || "هيتم تأكيده معاك"}</span>
+                  <span className="v">{job.location}</span>
                 </div>
-                <div className="row">
-                  <span className="k">الميعاد</span>
-                  <span className="v">
-                    {form.day} — {form.time}
-                  </span>
-                </div>
-                <div className="row">
-                  <span className="k">الراتب</span>
-                  <span className="v">{job.salaryDisplay}</span>
-                </div>
-              </>
+              )
             )}
+            <div className="row">
+              <span className="k">الميعاد</span>
+              <span className="v">
+                {formatArabicDate(form.day)} — {form.time}
+              </span>
+            </div>
           </div>
 
-          {selectedBranch && (
-            <div className="rm-help-note">
-              📍 لو معرفتش توصل للفرع الموجود على الخريطة، ممكن تتصل بمدير الفرع اللي رقمه مكتوب و هو هيساعدك.
-            </div>
-          )}
+          <div className="rm-keep-note">
+            ⚠️ لازم تحتفظ بالبيانات اللي ظهرتلك، و لو تاهت منك يبقى هتحتاج تقدم تاني عشان تظهرلك.
+          </div>
 
           <div className="rm-docs-note">
             <b>الأوراق المطلوبة بعد القبول:</b> {job.documentsAfterHire.join("، ")}. يوم المقابلة نفسه محتاج بس{" "}
@@ -421,8 +526,25 @@ export default function JobClient({ job, branches, siteContent }) {
 
       {!confirmed && (
         <div className="rm-sticky-cta">
-          <button className="rm-btn-primary" onClick={ctaClick}>
-            {tab === "apply" ? "إرسال الطلب" : siteContent.copy.applyButton}
+          {submitError && tab === "apply" && (
+            <div
+              role="alert"
+              style={{
+                background: "#fde8e8",
+                color: "#9b1c1c",
+                borderRadius: 12,
+                padding: "10px 14px",
+                marginBottom: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                textAlign: "center",
+              }}
+            >
+              {submitError}
+            </div>
+          )}
+          <button className="rm-btn-primary" onClick={ctaClick} disabled={submitting} style={submitting ? { opacity: 0.7 } : undefined}>
+            {tab === "apply" ? (submitting ? "جاري إرسال طلبك..." : "إرسال الطلب") : siteContent.copy.applyButton}
           </button>
         </div>
       )}

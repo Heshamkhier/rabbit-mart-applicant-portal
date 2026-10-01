@@ -1,72 +1,107 @@
 import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { sheetsConfigured, appendRow, readTab } from "@/lib/sheets";
+import { sheetsConfigured, appendRow } from "@/lib/sheets";
 import { applicationToRow } from "@/lib/sheets-mappers";
-import { getBranches } from "@/lib/data";
+import { getJobs, getBranchesForJob } from "@/lib/data";
 import { sendConfirmation } from "@/lib/whatsapp";
 
-// Connect phase: writes to the real Applicants tab when Sheets credentials
-// are set, falling back to the local data/applications.json file otherwise
-// (same file this build always used). Either way, a successful submit also
-// fires the WhatsApp confirmation (lib/whatsapp.js — dry-run until Meta
-// Business verification + template approval are done on your side).
+// Saves a candidate application to the Applicants tab of the Google Sheet
+// (local data/applications.json when Sheets isn't configured, i.e. local dev).
 //
-// The fallback file has to live somewhere writable. process.cwd() is the
-// deployed project bundle on a serverless host (Vercel and friends) — that
-// filesystem is read-only outside /tmp, so writing next to the source (fine
-// for local dev) throws EROFS on every submission there once Sheets isn't
-// configured. Route the fallback to /tmp on serverless instead; local dev
-// keeps writing next to the source like before. This only matters when
-// Sheets isn't configured — once it is, appendRow() below writes straight
-// to the real Sheet and this file is never touched.
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const dataDir = isServerless ? path.join("/tmp", "rabbit-mart-applicant-portal-data") : path.join(process.cwd(), "data");
-if (isServerless) fs.mkdirSync(dataDir, { recursive: true });
-const filePath = path.join(dataDir, "applications.json");
+// Returns { ok: true } ONLY once the row is really saved. The form used to
+// ignore this response entirely and show "تمام" no matter what, so every
+// failed save looked like a success to the candidate.
+
+const filePath = path.join(process.cwd(), "data", "applications.json");
 
 function readAllLocal() {
   if (!fs.existsSync(filePath)) return [];
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));
 }
 
-export async function POST(req) {
-  const body = await req.json();
-  const applicant = { id: `app_${Date.now()}`, ...body };
+function fail(status, error) {
+  return NextResponse.json({ ok: false, error }, { status });
+}
 
-  if (sheetsConfigured()) {
-    await appendRow("Applicants", applicationToRow(applicant));
-  } else {
-    const all = readAllLocal();
-    all.push(applicant);
-    fs.writeFileSync(filePath, JSON.stringify(all, null, 2));
+export async function POST(req) {
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return fail(400, "bad_request");
   }
 
-  // Fire the WhatsApp confirmation — never blocks or fails the application
-  // itself; dry-run just logs the payload until Build 4 goes live.
+  const jobs = await getJobs();
+  const job = jobs.find((j) => j.id === body.jobId && j.status === "live");
+  if (!job) return fail(400, "job_closed");
+  if (!String(body.name || "").trim() || !/^01[0-9]{9}$/.test(String(body.phone || "").trim())) {
+    return fail(400, "invalid_fields");
+  }
+
+  // A store-based job must be booked at one of its currently open stores.
+  const openStores = await getBranchesForJob(job);
+  let store = null;
+  if (openStores.length > 0) {
+    store = openStores.find((b) => b.id === body.branchId) || null;
+    if (!store) return fail(400, "store_closed");
+  }
+
+  const applicant = {
+    ...body,
+    id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    status: "new",
+    // Only short, simple tags (facebook, whatsapp...) - never arbitrary text.
+    source: /^[a-z0-9_-]{1,30}$/i.test(String(body.source || "")) ? String(body.source).toLowerCase() : "form",
+  };
+
   try {
-    if (applicant.branchId && applicant.phone) {
-      const branches = await getBranches();
-      const branch = branches.find((b) => b.id === applicant.branchId);
-      if (branch) {
-        await sendConfirmation({
-          applicantName: applicant.name,
-          applicantPhone: applicant.whatsapp || applicant.phone,
-          branch,
-        });
-      }
+    if (sheetsConfigured()) {
+      await appendRow("Applicants", applicationToRow(applicant));
+    } else {
+      const all = readAllLocal();
+      all.push(applicant);
+      fs.writeFileSync(filePath, JSON.stringify(all, null, 2));
+    }
+  } catch (err) {
+    console.error("apply: saving the application FAILED - candidate was told to retry:", err?.message || err);
+    return fail(503, "save_failed");
+  }
+
+  // WhatsApp confirmation never blocks or fails the application itself
+  // (dry-run just logs the payload until the WhatsApp setup goes live).
+  try {
+    if (store && applicant.phone) {
+      await sendConfirmation({
+        applicantName: applicant.name,
+        applicantPhone: applicant.whatsapp || applicant.phone,
+        branch: store,
+      });
     }
   } catch (err) {
     console.error("WhatsApp confirmation failed (application still saved):", err);
   }
 
-  return NextResponse.json({ ok: true });
+  // The store's address, map link and manager contact are released only now,
+  // after the application is saved (the job page never includes them).
+  const storeDetails = store
+    ? {
+        id: store.id,
+        name: store.name,
+        area: store.area,
+        address: store.address,
+        mapLink: store.mapLink,
+        manager: store.manager,
+        phone: store.phone,
+        totalSalary: store.totalSalary,
+      }
+    : null;
+  return NextResponse.json({ ok: true, id: applicant.id, store: storeDetails });
 }
 
 export async function GET() {
-  if (sheetsConfigured()) {
-    const { rows } = await readTab("Applicants");
-    return NextResponse.json(rows);
-  }
-  return NextResponse.json(readAllLocal());
+  // Applicant data is personal information - it is not served from the
+  // public candidate site. The admin portal reads it from the Sheet.
+  return fail(404, "not_found");
 }
